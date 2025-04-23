@@ -1,5 +1,5 @@
 import os
-from aiohttp import web
+import json
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils.executor import start_webhook
 from dotenv import load_dotenv
@@ -13,29 +13,47 @@ WEBAPP_HOST = "0.0.0.0"
 WEBAPP_PORT = int(os.getenv("PORT", 5000))
 
 SOURCE_CHAT_IDS = list(map(int, os.getenv("SOURCE_CHAT_IDS").split(",")))
-TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
+USERS_FILE = "subscribers.json"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
-# Команда /start
+# ✅ Подписка — сохранить user_id
 @dp.message_handler(commands=["start"])
 async def start_cmd(message: types.Message):
-    await message.answer("✅ Webhook-бот работает!")
+    user_id = message.from_user.id
+    subscribers = load_subscribers()
+    if user_id not in subscribers:
+        subscribers.append(user_id)
+        save_subscribers(subscribers)
+    await message.answer("✅ Вы подписались на репосты из групп!")
 
-# Репост сообщений
+# 🔁 Репост в лички всех подписчиков
 @dp.message_handler(lambda message: message.chat.id in SOURCE_CHAT_IDS)
 async def repost(message: types.Message):
-    try:
-        await message.copy_to(chat_id=TARGET_CHAT_ID)
-        print(f"🔁 Репост из {message.chat.id}")
-    except Exception as e:
-        print(f"❌ Ошибка при пересылке: {e}")
+    subscribers = load_subscribers()
+    for uid in subscribers:
+        try:
+            await message.copy_to(chat_id=uid)
+            print(f"🔁 Отправлено пользователю {uid}")
+        except Exception as e:
+            print(f"❌ Ошибка при отправке {uid}: {e}")
 
-# Запуск webhook
+# JSON база пользователей
+def load_subscribers():
+    if not os.path.exists(USERS_FILE):
+        return []
+    with open(USERS_FILE, "r") as f:
+        return json.load(f)
+
+def save_subscribers(data):
+    with open(USERS_FILE, "w") as f:
+        json.dump(data, f)
+
+# Webhook
 async def on_startup(dp):
     await bot.set_webhook(WEBHOOK_URL)
-    print("🚀 Webhook установлен:", WEBHOOK_URL)
+    print("🚀 Webhook установлен")
 
 async def on_shutdown(dp):
     await bot.delete_webhook()
