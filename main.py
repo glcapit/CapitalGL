@@ -3,7 +3,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
 from dotenv import load_dotenv
 
-# Загрузка переменных окружения
+# Загрузка переменных окружения из .env
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -14,7 +14,12 @@ TARGET_CHAT_ID = int(os.getenv("TARGET_CHAT_ID"))
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
 
-# Обработчик сообщений из указанных источников
+# Обработчик команды /start
+@dp.message_handler(commands=["start"])
+async def start(message: types.Message):
+    await message.reply("Бот работает! Репост сообщений активен.")
+
+# Репост сообщений из источников в целевой чат
 @dp.message_handler(lambda message: message.chat.id in SOURCE_CHAT_IDS)
 async def forward_message(message: types.Message):
     try:
@@ -24,6 +29,6 @@ async def forward_message(message: types.Message):
         print(f"❌ Ошибка при пересылке из {message.chat.id}: {e}")
 
 # Запуск бота
-if __name__ == '__main__':
-    print("🔁 Бот запущен и слушает чаты:", SOURCE_CHAT_IDS)
+if __name__ == "__main__":
+    print("🔁 Бот запущен. Источники:", SOURCE_CHAT_IDS)
     executor.start_polling(dp, skip_updates=True)
